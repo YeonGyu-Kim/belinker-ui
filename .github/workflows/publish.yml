@@ -1,0 +1,47 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*.*.*']
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://npm.pkg.github.com
+          scope: '@yeongyu-kim'
+
+      - run: npm ci
+
+      - run: npm run build
+
+      - name: Publish to GitHub Packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+
+          if [[ "${GITHUB_REF}" == refs/tags/* ]]; then
+            TAG="${GITHUB_REF#refs/tags/v}"
+            if [[ "${TAG}" != "${VERSION}" ]]; then
+              echo "태그 v${TAG} 와 package.json 버전 ${VERSION} 이 다릅니다."
+              exit 1
+            fi
+          fi
+
+          if npm view "@yeongyu-kim/ui@${VERSION}" version >/dev/null 2>&1; then
+            echo "@yeongyu-kim/ui@${VERSION} 은 이미 게시되어 있어 건너뜁니다."
+            exit 0
+          fi
+
+          npm publish
