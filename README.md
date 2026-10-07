@@ -80,13 +80,12 @@ http://localhost:6006
 - 동작은 같고 variant나 prop이 늘어나면 minor
 - variant 이름이나 기존 prop이 바뀌거나 없어지면 major
 
-코드는 `main`에 그대로 푸시합니다. `package.json` 버전은 그때 고치지 않습니다.
+`git push origin main`이 끝나면 patch, minor, major, 건너뛰기 중 하나를 묻습니다. `package.json`은 직접 고치지 않습니다.
 
-배포는 GitHub 저장소 **Actions → Publish → Run workflow**에서 단계를 고릅니다. CI가 버전을 올리고 GitHub Packages에 등록한 뒤, 그 버전을 `main`에 커밋합니다.
+- **patch, minor, major**를 고르면 Actions가 그 버전으로 올린 뒤 GitHub Packages에 등록하고, `main`에 버전 커밋을 남깁니다. 끝난 뒤 `git pull` 하면 로컬 `package.json` 버전이 맞춰집니다.
+- **건너뛰기**는 방금 푸시한 코드만 남기고 npm에는 올리지 않습니다.
 
-- 스타일만 고친 뒤에는 **patch**
-- variant나 prop을 추가한 뒤에는 **minor**
-- 기존 variant 이름이나 prop을 바꾸거나 없앤 뒤에는 **major**
+이 질문은 `npm install` 할 때 설치되는 이 저장소의 훅이 합니다. 다른 컴퓨터에서는 한 번 `npm install` 하면 됩니다.
 
 ## 로컬 빌드
 

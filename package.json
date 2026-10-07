@@ -31,7 +31,8 @@
     "dev": "tsup --watch",
     "typecheck": "tsc --noEmit",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build"
+    "build-storybook": "storybook build",
+    "prepare": "sh scripts/install-git-hooks.sh"
   },
   "peerDependencies": {
     "react": "^18 || ^19",

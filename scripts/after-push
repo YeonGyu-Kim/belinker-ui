@@ -1,0 +1,122 @@
+#!/bin/sh
+# main 푸시가 끝난 뒤에 patch, minor, major를 묻습니다.
+# 고른 단계는 GitHub Actions Publish 워크플로로 넘깁니다.
+
+state=$1
+updated=0
+zero=0000000000000000000000000000000000000000
+
+while read -r old new ref; do
+  if [ "$ref" = "refs/remotes/origin/main" ] && [ "$old" != "$new" ] && [ "$new" != "$zero" ]; then
+    updated=1
+  fi
+done
+
+if [ "$state" != "committed" ] || [ "$updated" != 1 ]; then
+  exit 0
+fi
+
+if [ -z "${BELINKER_RELEASE_BUMP:-}" ]; then
+  parent=$(ps -o command= -p "$PPID" 2>/dev/null || true)
+  case "$parent" in
+    *git\ push*|*"git"\ push*) ;;
+    *) exit 0 ;;
+  esac
+fi
+
+current=$(sed -n 's/^  "version": "\([^"]*\)".*/\1/p' package.json | head -n 1)
+major=${current%%.*}
+rest=${current#*.}
+minor=${rest%%.*}
+patch=${rest#*.}
+next_patch="$major.$minor.$((patch + 1))"
+next_minor="$major.$((minor + 1)).0"
+next_major="$((major + 1)).0.0"
+
+choose_from_tty() {
+  while true; do
+    printf '\n푸시가 끝났습니다. 발행할 버전을 고르세요. 현재 %s\n' "$current" >&2
+    printf '  1) patch       %s\n' "$next_patch" >&2
+    printf '  2) minor       %s\n' "$next_minor" >&2
+    printf '  3) major       %s\n' "$next_major" >&2
+    printf '  4) 건너뛰기\n' >&2
+    printf '번호 또는 이름: ' >&2
+    if ! read -r choice </dev/tty; then
+      echo "입력이 없어 발행하지 않습니다. 푸시는 이미 끝났습니다." >&2
+      exit 0
+    fi
+    case $choice in
+      1|patch) printf 'patch'; return ;;
+      2|minor) printf 'minor'; return ;;
+      3|major) printf 'major'; return ;;
+      4|skip|건너뛰기) printf 'skip'; return ;;
+      *) echo "1, 2, 3, 4 중에서 고르세요." >&2 ;;
+    esac
+  done
+}
+
+if [ -n "${BELINKER_RELEASE_BUMP:-}" ]; then
+  choice=$BELINKER_RELEASE_BUMP
+  case $choice in
+    patch|minor|major|skip) ;;
+    *)
+      echo "BELINKER_RELEASE_BUMP 는 patch, minor, major, skip 중 하나여야 합니다." >&2
+      exit 0
+      ;;
+  esac
+elif [ -r /dev/tty ]; then
+  choice=$(choose_from_tty) || exit 0
+else
+  echo "터미널이 아니라 버전 질문 없이 푸시만 끝났습니다." >&2
+  exit 0
+fi
+
+if [ "$choice" = "skip" ]; then
+  echo "발행하지 않습니다." >&2
+  exit 0
+fi
+
+case $choice in
+  patch) next=$next_patch ;;
+  minor) next=$next_minor ;;
+  major) next=$next_major ;;
+esac
+
+url=$(git remote get-url origin)
+case "$url" in
+  https://github.com/*) slug=${url#https://github.com/} ;;
+  git@github.com:*) slug=${url#git@github.com:} ;;
+  *)
+    echo "origin이 GitHub가 아니라 발행을 시작하지 못했습니다." >&2
+    exit 0
+    ;;
+esac
+slug=${slug%.git}
+
+token=$(printf 'protocol=https\nhost=github.com\n\n' | git credential fill | sed -n 's/^password=//p')
+if [ -z "$token" ]; then
+  echo "GitHub 토큰을 찾지 못해 발행을 시작하지 못했습니다. Actions에서 Publish를 직접 실행하세요." >&2
+  exit 0
+fi
+
+body=$(mktemp)
+code=$(curl -sS -o "$body" -w '%{http_code}' -X POST \
+  -H "Accept: application/vnd.github+json" \
+  -H "Authorization: Bearer ${token}" \
+  -H "X-GitHub-Api-Version: 2022-11-28" \
+  "https://api.github.com/repos/${slug}/actions/workflows/publish.yml/dispatches" \
+  -d "{\"ref\":\"main\",\"inputs\":{\"bump\":\"${choice}\"}}") || code=000
+unset token
+
+if [ "$code" = "204" ]; then
+  rm -f "$body"
+  printf '%s 발행을 시작했습니다. Actions가 %s 을 %s 으로 올립니다.\n' "$choice" "$current" "$next" >&2
+  echo "끝난 뒤 git pull 하면 package.json 버전이 맞춰집니다." >&2
+  exit 0
+fi
+
+echo "발행 시작에 실패했습니다. HTTP ${code}" >&2
+cat "$body" >&2
+rm -f "$body"
+echo "푸시는 이미 끝났습니다. Actions에서 Publish를 직접 실행할 수 있습니다." >&2
+exit 0
