@@ -16,6 +16,7 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     permissions:
+      actions: write
       contents: write
       packages: write
     steps:
@@ -38,6 +39,13 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npm publish
+
+      - name: Show published version
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          VERSION="$(node -p "require('./package.json').version")"
+          gh api --method PATCH "/repos/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}" -f "name=Publish ${VERSION}"
 
       - name: Commit version bump
         run: |
