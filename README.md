@@ -80,7 +80,13 @@ http://localhost:6006
 - 동작은 같고 variant나 prop이 늘어나면 minor
 - variant 이름이나 기존 prop이 바뀌거나 없어지면 major
 
-`package.json`의 `version`을 올린 뒤 `main`에 푸시하거나 `v1.2.3` 태그를 푸시하면 CI가 빌드 후 GitHub Packages에 `npm publish` 합니다. 같은 버전이 이미 있으면 건너뜁니다. 태그를 쓸 때는 태그 이름이 `v` + `package.json` 버전과 같아야 합니다.
+코드는 `main`에 그대로 푸시합니다. `package.json` 버전은 그때 고치지 않습니다.
+
+배포는 GitHub 저장소 **Actions → Publish → Run workflow**에서 단계를 고릅니다. CI가 버전을 올리고 GitHub Packages에 등록한 뒤, 그 버전을 `main`에 커밋합니다.
+
+- 스타일만 고친 뒤에는 **patch**
+- variant나 prop을 추가한 뒤에는 **minor**
+- 기존 variant 이름이나 prop을 바꾸거나 없앤 뒤에는 **major**
 
 ## 로컬 빌드
 
