@@ -33,7 +33,25 @@ jobs:
       - run: npm run build
 
       - name: Bump version
-        run: npm version ${{ inputs.bump }} --no-git-tag-version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          LOCAL="$(node -p "require('./package.json').version")"
+          PUBLISHED="$(npm view @yeongyu-kim/ui version)"
+          echo "package.json ${LOCAL}, GitHub Packages ${PUBLISHED}"
+          BASE="$(node -e '
+            const [local, published] = process.argv.slice(1);
+            const cmp = local.split(".").map(Number).reduce((result, part, index) => {
+              return result || Math.sign(part - Number(published.split(".")[index]));
+            }, 0);
+            console.log(cmp >= 0 ? local : published);
+          ' "$LOCAL" "$PUBLISHED")"
+          if [ "$BASE" != "$LOCAL" ]; then
+            npm pkg set "version=${BASE}"
+          fi
+          npm version ${{ inputs.bump }} --no-git-tag-version
+          echo "next $(node -p "require('./package.json').version")"
 
       - name: Publish to GitHub Packages
         env:
