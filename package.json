@@ -1,6 +1,6 @@
 {
   "name": "@yeongyu-kim/ui",
-  "version": "1.2.0",
+  "version": "1.5.0",
   "description": "Belinker 공통 React UI. Button과 Tailwind preset을 제공합니다.",
   "license": "UNLICENSED",
   "type": "module",
